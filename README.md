@@ -1,0 +1,1 @@
+A Python-powered meme-to-video generator that lets users upload an image of text, automatically turns it into a funny short video, and can post directly to TikTok. Built with a minimal frontend (just upload + playback) and a Python-heavy backend for AI, video generation, and automation.
