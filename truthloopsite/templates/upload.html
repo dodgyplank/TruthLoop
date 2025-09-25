@@ -1,0 +1,8 @@
+<h2>Upload Meme</h2>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Upload</button>
+</form>
+<h2>Upload Successful!</h2>
+<a href="/upload/">Upload another</a>
