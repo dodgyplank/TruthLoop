@@ -4,7 +4,6 @@ performance optimizations, and better text highlighting.
 """
 
 import os
-import cv2
 import json
 import re
 import base64
@@ -113,7 +112,9 @@ class ScamDetector:
                     "scam_phrases": [],
                     "risk_level": "Low",
                     "confidence": 0,
-                    "analysis": "No text found to analyze"
+                    "analysis": "No text found to analyze",
+                    "scam_type": "Unknown",
+                    "category": "Unknown"
                 }
             
             # Enhanced system prompt for better scam detection
@@ -122,7 +123,8 @@ class ScamDetector:
                 "Analyze text for common scam indicators including: urgency tactics, "
                 "suspicious URLs, fake offers, phishing attempts, social engineering, "
                 "grammar/spelling errors typical of scams, requests for personal info, "
-                "cryptocurrency schemes, and fake authority claims."
+                "cryptocurrency schemes, and fake authority claims. "
+                "If scam_type is not applicable, set it to 'Unknown'."
             )
             
             user_prompt = (
@@ -131,7 +133,8 @@ class ScamDetector:
                 f"- 'risk_level': 'Low', 'Medium', or 'High'\n"
                 f"- 'confidence': confidence score (0-100)\n"
                 f"- 'analysis': brief explanation of findings\n"
-                f"- 'categories': array of scam types detected\n\n"
+                f"- 'scam_type': scam type detected\n"
+                f"- 'category': which sector this scam is targeting\n\n"
                 f"Text to analyze: {extracted_text}"
             )
             
@@ -180,7 +183,8 @@ class ScamDetector:
             "risk_level": "Unknown",
             "confidence": 0,
             "analysis": f"Analysis failed{': ' + error if error else ''}",
-            "categories": []
+            "scam_type": "Unknown",
+            "category": "Unknown"
         }
 
     def _validate_scam_result(self, result: Dict) -> Dict:
@@ -190,7 +194,8 @@ class ScamDetector:
             "risk_level": "Low",
             "confidence": 0,
             "analysis": "No analysis available",
-            "categories": []
+            "scam_type": "Unknown",
+            "category": "Unknown"
         }
         
         for key, default_value in required_keys.items():
@@ -209,140 +214,7 @@ class ScamDetector:
             
         return result
 
-    def highlight_scam_text(self, image_path: str, scam_phrases: List[str], 
-                          output_path: Optional[str] = None) -> str:
-        """
-        Highlight scam phrases in the image using advanced text detection.
-        
-        Args:
-            image_path: Path to input image
-            scam_phrases: List of phrases to highlight
-            output_path: Optional output path for highlighted image
-            
-        Returns:
-            Path to the highlighted image
-        """
-        try:
-            if not scam_phrases:
-                logger.info("No scam phrases to highlight")
-                # Just copy the original image
-                if output_path:
-                    Image.open(image_path).save(output_path)
-                    return output_path
-                else:
-                    return image_path
-                    
-            # Create output path if not provided
-            if not output_path:
-                output_path = tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".png"
-                ).name
-            
-            # Load and process image
-            image = cv2.imread(image_path)
-            if image is None:
-                raise ValueError(f"Could not load image at {image_path}")
-            
-            original_height, original_width = image.shape[:2]
-            
-            # Create highlighted version using multiple detection methods
-            highlighted_image = self._highlight_with_text_detection(
-                image.copy(), scam_phrases
-            )
-            
-            # Save result
-            success = cv2.imwrite(output_path, highlighted_image)
-            if not success:
-                raise ValueError("Failed to save highlighted image")
-                
-            logger.info(f"Successfully highlighted image saved to {output_path}")
-            return output_path
-            
-        except Exception as e:
-            logger.error(f"Text highlighting failed: {str(e)}")
-            # Return original image path as fallback
-            return image_path
-
-    def _highlight_with_text_detection(self, image: np.ndarray, 
-                                     scam_phrases: List[str]) -> np.ndarray:
-        """
-        Highlight text regions using OpenCV text detection methods.
-        
-        Args:
-            image: Input image as numpy array
-            scam_phrases: List of phrases to highlight
-            
-        Returns:
-            Image with highlighted regions
-        """
-        try:
-            # Convert to grayscale
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            
-            # Apply adaptive thresholding
-            binary = cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                cv2.THRESH_BINARY_INV, 11, 2
-            )
-            
-            # Morphological operations to connect text regions
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-            dilated = cv2.dilate(binary, kernel, iterations=2)
-            
-            # Find contours
-            contours, _ = cv2.findContours(
-                dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-            
-            # Filter and highlight relevant contours
-            for contour in contours:
-                x, y, w, h = cv2.boundingRect(contour)
-                
-                # Filter by size (likely text regions)
-                if self._is_likely_text_region(w, h, image.shape):
-                    # Draw semi-transparent red rectangle
-                    overlay = image.copy()
-                    cv2.rectangle(overlay, (x-2, y-2), (x+w+2, y+h+2), 
-                                (0, 0, 255), -1)
-                    image = cv2.addWeighted(image, 0.8, overlay, 0.2, 0)
-                    
-                    # Draw border
-                    cv2.rectangle(image, (x-2, y-2), (x+w+2, y+h+2), 
-                                (0, 0, 255), 2)
-            
-            return image
-            
-        except Exception as e:
-            logger.error(f"Text detection highlighting failed: {str(e)}")
-            return image
-
-    def _is_likely_text_region(self, width: int, height: int, 
-                             image_shape: Tuple[int, int, int]) -> bool:
-        """
-        Determine if a bounding box is likely to contain text.
-        
-        Args:
-            width: Bounding box width
-            height: Bounding box height  
-            image_shape: Original image shape (height, width, channels)
-            
-        Returns:
-            True if likely text region
-        """
-        img_height, img_width = image_shape[:2]
-        
-        # Filter by size ratios
-        min_width, max_width = img_width * 0.01, img_width * 0.8
-        min_height, max_height = img_height * 0.005, img_height * 0.3
-        
-        # Check aspect ratio (text is usually wider than tall)
-        aspect_ratio = width / height if height > 0 else 0
-        
-        return (min_width <= width <= max_width and 
-                min_height <= height <= max_height and
-                0.2 <= aspect_ratio <= 20)
-
-
+    
 # Convenience functions for backward compatibility
 def ocr_with_openai(image_bytes: bytes) -> str:
     """Extract text from image bytes using OpenAI Vision API."""
@@ -354,10 +226,3 @@ def detect_scam_text(extracted_text: str) -> Dict:
     """Detect scam phrases in text using OpenAI."""
     detector = ScamDetector()
     return detector.detect_scam_text(extracted_text)
-
-
-def highlight_scam_text(image_path: str, scam_phrases: List[str], 
-                       output_path: str = "highlighted.png") -> str:
-    """Highlight scam phrases in image."""
-    detector = ScamDetector()
-    return detector.highlight_scam_text(image_path, scam_phrases, output_path)
