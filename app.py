@@ -341,7 +341,7 @@ def show_what_if():
     # Header
     st.markdown("""
     <div class="header-container">
-        <div class="header-title">❔ What If You Fall For It?</div>
+        <div class="header-title">What If You Fall For It?</div>
         <div class="header-subtitle">Understanding the real-world consequences of scams and cyber threats</div>
     </div>
     """, unsafe_allow_html=True)
@@ -554,20 +554,20 @@ def show_what_if():
     # Footer with emergency resources
     st.markdown("""
     ---
-    ### 🚨 If You've Been Scammed:
+    ### 🚨 If You've Been Scammed in Singapore:
 
     **Immediate Actions:**
-    - Contact your bank and credit card companies immediately
-    - File a report with the FTC at reportfraud.ftc.gov
-    - Report to your local police department
-    - Change all passwords and enable 2FA
-    - Monitor your credit reports closely
+    - Contact your bank immediately to block any suspicious transactions
+    - Report the scam to the **Singapore Police Force (SPF)** via [www.police.gov.sg/iwitness](https://www.police.gov.sg/iwitness) or call 1800-255-0000
+    - Lodge a report with **Singapore’s Scam Alert Centre** via [www.scamalert.sg](https://www.scamalert.sg)
+    - Change all passwords and enable 2FA on your accounts
+    - Monitor your bank accounts and credit reports closely
 
     **Support Resources:**
-    - **AARP Fraud Watch Network:** 1-877-908-3360
-    - **FTC Consumer Sentinel:** consumer.ftc.gov
-    - **FBI Internet Crime Complaint Center:** ic3.gov
-    - **Crisis Text Line:** Text HOME to 741741
+    - **IMDA Scam Watch:** [www.scamalert.sg](https://www.scamalert.sg)
+    - **National Crime Prevention Council (NCPC) Helpline:** 1800-722-6688
+    - **Samaritans of Singapore (SOS) – Crisis Support:** 1800-221-4444
+    - **Chat with Counsellors (IFSC / Family Service Centres):** [www.familyservice.org.sg](https://www.familyservice.org.sg)
 
     Remember: Being scammed is not your fault, and help is available.
     """)
