@@ -7,6 +7,7 @@ import os
 import json
 import redis
 import hashlib
+from dotenv import load_dotenv
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from agents.llm_utils import generate_narration_from_json, what_if_bot
@@ -14,8 +15,7 @@ from agents.image_utils import encode_image_to_base64, generate_starter_frame
 from agents.detect_scam import detect_scam_text, ocr_with_openai
 import urllib.parse
 
-
-
+load_dotenv()
 # Initialize Redis connection
 # -----------------------------
 @st.cache_resource
@@ -23,15 +23,14 @@ import urllib.parse
 def init_redis():
     try:
         REDIS_HOST = os.getenv("REDIS_HOST")
-        REDIS_PORT = int(os.getenv("REDIS_PORT"))
+        REDIS_PORT = int(os.getenv("REDIS_PORT"))  # ⚠ Convert to int!
         REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
-        # Connect to Redis
         r = redis.Redis(
             host=REDIS_HOST,
             port=REDIS_PORT,
             password=REDIS_PASSWORD,
-            decode_responses=True  # returns strings instead of bytes
+            decode_responses=True
         )
         r.ping()
         return r
