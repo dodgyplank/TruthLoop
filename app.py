@@ -1059,7 +1059,9 @@ def show_history_page():
                             except Exception:
                                 image_str = "[Image not available]\n"
 
-                        share_text = f"🛡️ TruthLoop Analysis Results:\n\n"
+
+                        share_text = f"🛡️ TruthLoop Analysis Results:\n"
+                        share_text += f"https://truthloop-cbwyn6axbt6dnnva2rwzjw.streamlit.app/\n\n"
                         share_text += f"🚨 Risk Level: {risk_level}\n"
                         share_text += f"⚠️ Threats Detected: {threat_count}\n"
                         share_text += f"🎯 Confidence: {confidence}%\n"
