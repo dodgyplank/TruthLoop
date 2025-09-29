@@ -1022,7 +1022,7 @@ def show_history_page():
                             <span class="risk-badge {risk_class}">{risk_level}</span>
                         </div>
                         <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            <span>⚠️ {threat_count} threat{"s" if threat_count != 1 else ""} detected</span>
+                            <span>⚠️  {threat_count} threat{"s" if threat_count != 1 else ""} detected</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
