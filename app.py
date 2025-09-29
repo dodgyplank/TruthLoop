@@ -14,12 +14,25 @@ from agents.image_utils import encode_image_to_base64, generate_starter_frame
 from agents.detect_scam import detect_scam_text, ocr_with_openai
 import urllib.parse
 
+
+
 # Initialize Redis connection
 # -----------------------------
 @st.cache_resource
+
 def init_redis():
     try:
-        r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        REDIS_HOST = os.getenv("REDIS_HOST")
+        REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+        REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+
+        # Connect to Redis
+        r = redis.Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            password=REDIS_PASSWORD,
+            decode_responses=True  # returns strings instead of bytes
+        )
         r.ping()
         return r
     except:
@@ -542,7 +555,6 @@ def show_what_if():
     # Footer with emergency resources
     st.markdown("""
     ---
-    <div style="text-align:center;">
     ### 🚨 If You've Been Scammed:
 
     **Immediate Actions:**
