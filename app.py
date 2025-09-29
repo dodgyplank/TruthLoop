@@ -341,7 +341,7 @@ def show_what_if():
     # Header
     st.markdown("""
     <div class="header-container">
-        <div class="header-title">❓ What If You Fall For It?</div>
+        <div class="header-title">❔ What If You Fall For It?</div>
         <div class="header-subtitle">Understanding the real-world consequences of scams and cyber threats</div>
     </div>
     """, unsafe_allow_html=True)
@@ -868,7 +868,7 @@ def show_history_page():
     # Header
     st.markdown("""
     <div class="header-container">
-        <div class="header-title">📚 Analysis History</div>
+        <div class="header-title">📚 Feed</div>
         <div class="header-subtitle">Review your past threat detection analyses</div>
     </div>
     """, unsafe_allow_html=True)
@@ -1956,7 +1956,7 @@ def show_home_page():
             col1 = st.columns(1)
             
             with col1[0]:
-                if st.button("💾 Save to History", key="save_btn", use_container_width=True):
+                if st.button("📫 Post", key="save_btn", use_container_width=True):
                     if save_to_history(scam_json, file_bytes, redis_client):
                         st.success("✅ Analysis saved to history!")
                     else:
