@@ -1,8 +1,7 @@
-json 
 langchain
-langchain_openai
+openai
 elevenlabs
 python-dotenv
-streamlit 
+streamlit
 pillow
-
+redis
