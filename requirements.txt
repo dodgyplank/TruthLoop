@@ -1,6 +1,4 @@
-base64 
 json 
-re
 langchain
 langchain_openai
 elevenlabs

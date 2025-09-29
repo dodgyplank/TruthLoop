@@ -542,7 +542,7 @@ def show_what_if():
     # Footer with emergency resources
     st.markdown("""
     ---
-
+    <div style="text-align:center;">
     ### 🚨 If You've Been Scammed:
 
     **Immediate Actions:**
