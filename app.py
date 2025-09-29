@@ -9,90 +9,98 @@ import redis
 import hashlib
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-from agents.llm_utils import generate_narration_from_json
+from agents.llm_utils import generate_narration_from_json, what_if_bot
 from agents.image_utils import encode_image_to_base64, generate_starter_frame
 from agents.detect_scam import detect_scam_text, ocr_with_openai
 import urllib.parse
 
-def main():
-    """Main router function to handle navigation between pages"""
+# Initialize Redis connection
+# -----------------------------
+@st.cache_resource
+def init_redis():
+    try:
+        r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+        r.ping()
+        return r
+    except:
+        st.error("⚠️ Redis connection failed. History feature will be disabled.")
+        return None
 
-    # Initialize Redis connection
-    # -----------------------------
-    @st.cache_resource
-    def init_redis():
-        try:
-            r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
-            r.ping()
-            return r
-        except:
-            st.error("⚠️ Redis connection failed. History feature will be disabled.")
-            return None
+redis_client = init_redis()
 
-    redis_client = init_redis()
+# -----------------------------
+# Page Configuration
+# -----------------------------
+st.set_page_config(
+    page_title="TruthLoop Educational Bot",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-    # -----------------------------
-    # Page Configuration
-    # -----------------------------
-    st.set_page_config(
-        page_title="TruthLoop Educational Bot",
-        layout="wide",
-        initial_sidebar_state="collapsed"
-    )
+# -----------------------------
+# Initialize session state for page
+# -----------------------------
+if "page" not in st.session_state:
+    st.session_state["page"] = st.query_params.get("page", ["home"])[0]
 
-    # -----------------------------
-    # Initialize session state for page
-    # -----------------------------
-    if "page" not in st.session_state:
-        st.session_state["page"] = st.query_params.get("page", ["home"])[0]
+# -----------------------------
+# Floating Navigation Bar CSS
+# -----------------------------
+st.markdown("""
+<style>
+    /* Floating navbar */
+    .floating-navbar {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #111;
+        border-radius: 25px;
+        padding: 12px 25px;
+        display: flex;
+        gap: 25px;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+        z-index: 10000;
+    }
+    .floating-navbar a {
+        color: #fff;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .floating-navbar a:hover {
+        color: #00bfff;
+    }
+    /* Add bottom padding so content doesn't overlap navbar */
+    .block-container {
+        padding-bottom: 80px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-    # -----------------------------
-    # Navigation Bar using buttons
-    # -----------------------------
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col1:
-        if st.button("🏠 Home", key="home_nav"):
-            st.session_state["page"] = "home"
-    with col2:
-        if st.button("❓ What If", key="what_if_nav"):
-            st.session_state["page"] = "what_if"
-    with col3:
-        if st.button("📚 History", key="history_nav"):
-            st.session_state["page"] = "history"
-
-    # -----------------------------
-    # Route to the appropriate page
-    # -----------------------------
-    page = st.session_state["page"]
-
-    if page == "history":
-        try:
-            show_history_page()
-        except NameError:
-            st.error("History page not found.")
-            show_home_page()
-    elif page == "what_if":
-        try:
-            show_what_if()
-        except NameError:
-            st.error("What If page not found.")
-            show_home_page()
-    else:
-        show_home_page()
-
+# -----------------------------
+# Navigation Bar using buttons
+# -----------------------------
+col1, col2, col3 = st.columns([1, 1, 1])
+with col1:
+    if st.button("🏠 Home", key="home_nav", use_container_width=True):
+        st.session_state["page"] = "home"
+        st.rerun()
+with col2:
+    if st.button("❓ What If", key="what_if_nav", use_container_width=True):
+        st.session_state["page"] = "what_if"
+        st.rerun()
+with col3:
+    if st.button("📚 History", key="history_nav", use_container_width=True):
+        st.session_state["page"] = "history"
+        st.rerun()
 
 def show_what_if():
     import streamlit as st
     import random
     from PIL import Image, ImageDraw, ImageFont
     import io
-
-    # Page configuration
-    st.set_page_config(
-        page_title="TruthLoop - What If Scenarios", 
-        layout="wide",
-        initial_sidebar_state="collapsed"
-    )
 
     # CSS styling for what-if page
     st.markdown("""
@@ -122,6 +130,8 @@ def show_what_if():
             --warning-bg: #2d1b0e;
             --warning-border: #5d2f0e;
             --success-color: #56d364;
+            --success-bg: #0d2818;
+            --success-border: #1a5a2e;
             --shadow-light: rgba(0, 0, 0, 0.12);
             --shadow-medium: rgba(0, 0, 0, 0.25);
             --shadow-heavy: rgba(0, 0, 0, 0.4);
@@ -131,43 +141,6 @@ def show_what_if():
             background-color: var(--bg-primary) !important;
             color: var(--text-primary) !important;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            padding-top: 80px;
-        }
-        
-        /* Floating Navigation Bar */
-        .nav-bar {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: var(--bg-card);
-            border-radius: 25px;
-            padding: 8px;
-            border: 1px solid var(--border-primary);
-            box-shadow: 0 8px 32px var(--shadow-heavy);
-            display: flex;
-            gap: 8px;
-        }
-        
-        .nav-item {
-            padding: 12px 18px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-primary);
-            border-radius: 18px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .nav-item:hover, .nav-item.active {
-            background: var(--accent-color);
-            color: var(--bg-primary);
-            border-color: var(--accent-color);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(88, 166, 255, 0.3);
         }
         
         /* Header styling */
@@ -183,7 +156,6 @@ def show_what_if():
             max-width: 1200px;
             margin-left: auto;
             margin-right: auto;
-            margin-bottom: 2.5rem;
         }
         
         .header-title {
@@ -200,60 +172,6 @@ def show_what_if():
             font-weight: 400;
             color: var(--text-primary) !important;
             letter-spacing: 0.5px;
-        }
-        
-        /* Scenario cards */
-        .scenario-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            max-width: 1200px;
-            margin: 0 auto 3rem auto;
-            padding: 0 1rem;
-        }
-        
-        .scenario-card {
-            background: var(--bg-card);
-            border-radius: 20px;
-            border: 1px solid var(--border-primary);
-            overflow: hidden;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 20px var(--shadow-light);
-            cursor: pointer;
-        }
-        
-        .scenario-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 16px 48px var(--shadow-medium);
-            border-color: var(--danger-color);
-        }
-        
-        .scenario-header {
-            padding: 2rem;
-            background: var(--danger-bg);
-            border-bottom: 1px solid var(--danger-border);
-        }
-        
-        .scenario-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            display: block;
-        }
-        
-        .scenario-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-        }
-        
-        .scenario-subtitle {
-            color: var(--text-secondary);
-            font-size: 1rem;
-        }
-        
-        .scenario-body {
-            padding: 2rem;
         }
         
         .scenario-description {
@@ -283,6 +201,7 @@ def show_what_if():
         .consequence-text {
             color: var(--text-primary);
             font-weight: 500;
+            flex-grow: 1;
         }
         
         .severity-badge {
@@ -293,7 +212,7 @@ def show_what_if():
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-left: auto;
+            margin-left: 1rem;
         }
         
         .severity-high {
@@ -312,32 +231,6 @@ def show_what_if():
             background: rgba(86, 211, 100, 0.2);
             color: var(--success-color);
             border: 1px solid var(--success-color);
-        }
-        
-        /* Interactive scenario modal */
-        .scenario-modal {
-            background: var(--bg-card);
-            border-radius: 20px;
-            border: 1px solid var(--border-primary);
-            box-shadow: 0 20px 60px var(--shadow-heavy);
-            max-width: 800px;
-            margin: 2rem auto;
-        }
-        
-        .modal-header {
-            padding: 2rem;
-            background: var(--danger-bg);
-            border-bottom: 1px solid var(--danger-border);
-            border-radius: 20px 20px 0 0;
-        }
-        
-        .modal-body {
-            padding: 2rem;
-        }
-        
-        .timeline-container {
-            position: relative;
-            margin: 2rem 0;
         }
         
         .timeline-item {
@@ -382,7 +275,6 @@ def show_what_if():
             line-height: 1.5;
         }
         
-        /* Prevention tips */
         .prevention-container {
             background: var(--success-bg);
             border: 1px solid var(--success-color);
@@ -421,126 +313,10 @@ def show_what_if():
             margin-top: 0.2rem;
         }
         
-        /* Statistics */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem auto;
-            max-width: 800px;
-        }
-        
-        .stat-card {
-            background: var(--bg-secondary);
-            padding: 2rem;
-            border-radius: 16px;
-            border: 1px solid var(--border-primary);
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 32px var(--shadow-medium);
-        }
-        
-        .stat-value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--danger-color);
-            margin-bottom: 0.5rem;
-            display: block;
-        }
-        
-        .stat-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        /* Action buttons */
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin: 2rem 0;
-            flex-wrap: wrap;
-        }
-        
-        .action-btn {
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            border: none;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .primary-btn {
-            background: var(--accent-color);
-            color: var(--bg-primary);
-        }
-        
-        .primary-btn:hover {
-            background: var(--primary-color);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(88, 166, 255, 0.3);
-        }
-        
-        .secondary-btn {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 1px solid var(--border-primary);
-        }
-        
-        .secondary-btn:hover {
-            background: var(--bg-elevated);
-            border-color: var(--accent-color);
-            transform: translateY(-2px);
-        }
-        
         /* Responsive design */
         @media (max-width: 768px) {
-            .nav-bar {
-                position: relative;
-                top: 0;
-                right: 0;
-                width: 100%;
-                border-radius: 12px;
-                margin-bottom: 1rem;
-            }
-            
-            .stApp {
-                padding-top: 20px;
-            }
-            
-            .scenario-grid {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-            
             .header-title {
                 font-size: 2rem;
-            }
-            
-            .stats-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .action-btn {
-                width: 100%;
-                max-width: 300px;
             }
         }
         
@@ -548,15 +324,6 @@ def show_what_if():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
     </style>
-    """, unsafe_allow_html=True)
-
-    # Navigation Bar
-    st.markdown("""
-    <div class="nav-bar">
-        <div class="nav-item" onclick="window.open('/', '_self')">🏠 Home</div>
-        <div class="nav-item active">❓ What If</div>
-        <div class="nav-item" onclick="window.open('?page=history', '_self')">📚 History</div>
-    </div>
     """, unsafe_allow_html=True)
 
     # Header
@@ -772,18 +539,6 @@ def show_what_if():
     </div>
     """, unsafe_allow_html=True)
 
-    # Action buttons
-    st.markdown("""
-    <div class="action-buttons">
-        <button class="action-btn primary-btn" onclick="window.open('/', '_self')">
-            🏠 Test Your Images for Scams
-        </button>
-        <button class="action-btn secondary-btn" onclick="window.open('?page=history', '_self')">
-            📚 View Your Analysis History
-        </button>
-    </div>
-    """, unsafe_allow_html=True)
-
     # Footer with emergency resources
     st.markdown("""
     ---
@@ -813,6 +568,14 @@ def show_what_if():
     </div>
     """, unsafe_allow_html=True)
 
+import streamlit as st
+import redis
+import json
+import base64
+import io
+from PIL import Image
+from datetime import datetime
+
 def show_history_page():
     @st.cache_resource
     def init_redis():
@@ -820,10 +583,15 @@ def show_history_page():
             r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
             r.ping()
             return r
-        except:
+        except Exception as e:
+            st.warning(f"Redis connection failed: {str(e)}")
             return None
 
     redis_client = init_redis()
+
+    # Initialize session state for selected item
+    if 'selected_history_item' not in st.session_state:
+        st.session_state.selected_history_item = None
 
     # Page configuration
     st.set_page_config(
@@ -867,43 +635,7 @@ def show_history_page():
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             padding-top: 80px;
         }
-        
-        /* Floating Navigation Bar */
-        .nav-bar {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: var(--bg-card);
-            border-radius: 25px;
-            padding: 8px;
-            border: 1px solid var(--border-primary);
-            box-shadow: 0 8px 32px var(--shadow-heavy);
-            display: flex;
-            gap: 8px;
-        }
-        
-        .nav-item {
-            padding: 12px 18px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-primary);
-            border-radius: 18px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .nav-item:hover, .nav-item.active {
-            background: var(--accent-color);
-            color: var(--bg-primary);
-            border-color: var(--accent-color);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(88, 166, 255, 0.3);
-        }
-        
+    
         /* Header styling */
         .header-container {
             background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
@@ -917,7 +649,6 @@ def show_history_page():
             max-width: 1200px;
             margin-left: auto;
             margin-right: auto;
-            margin-bottom: 2.5rem;
         }
         
         .header-title {
@@ -952,7 +683,6 @@ def show_history_page():
             border: 1px solid var(--border-primary);
             overflow: hidden;
             transition: all 0.3s ease;
-            cursor: pointer;
             box-shadow: 0 4px 20px var(--shadow-light);
         }
         
@@ -1032,58 +762,6 @@ def show_history_page():
             gap: 0.25rem;
         }
         
-        /* Modal styling */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-        }
-        
-        .modal-content {
-            background: var(--bg-card);
-            border-radius: 20px;
-            max-width: 90vw;
-            max-height: 90vh;
-            overflow-y: auto;
-            border: 1px solid var(--border-primary);
-            box-shadow: 0 20px 60px var(--shadow-heavy);
-        }
-        
-        .modal-header {
-            padding: 2rem;
-            border-bottom: 1px solid var(--border-primary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 8px;
-            transition: all 0.3s ease;
-        }
-        
-        .modal-close:hover {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-        }
-        
-        .modal-body {
-            padding: 2rem;
-        }
-        
         /* Empty state */
         .empty-state {
             text-align: center;
@@ -1155,16 +833,16 @@ def show_history_page():
         /* Hide Streamlit branding */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        
+        /* Detail view styling */
+        .detail-header {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-primary);
+        }
     </style>
-    """, unsafe_allow_html=True)
-
-    # Navigation Bar
-    st.markdown("""
-    <div class="nav-bar">
-        <div class="nav-item" onclick="window.open('/', '_self')">🏠 Home</div>
-        <div class="nav-item" onclick="window.open('?page=what_if', '_self')">❓ What If</div>
-        <div class="nav-item active">📚 History</div>
-    </div>
     """, unsafe_allow_html=True)
 
     # Header
@@ -1189,14 +867,83 @@ def show_history_page():
                 data = redis_client.hgetall(f"history:{history_id}")
                 if data:
                     # Parse the stored analysis
-                    analysis = json.loads(data['analysis'])
-                    data['analysis'] = analysis
-                    history_items.append(data)
+                    try:
+                        analysis = json.loads(data.get('analysis', '{}'))
+                        data['analysis'] = analysis
+                        
+                        # Ensure required fields exist with defaults
+                        data.setdefault('id', history_id)
+                        data.setdefault('risk_level', analysis.get('risk_level', 'Unknown'))
+                        data.setdefault('threat_count', len(analysis.get('scam_phrases', [])))
+                        data.setdefault('timestamp', datetime.now().isoformat())
+                        
+                        history_items.append(data)
+                    except json.JSONDecodeError:
+                        continue
             
             return history_items
         except Exception as e:
             st.error(f"Failed to load history: {str(e)}")
             return []
+
+    def show_analysis_detail(item):
+        """Show detailed analysis"""
+        analysis = item.get('analysis', {})
+        
+        # Back button
+        if st.button("⬅️ Back to History", key="back_to_history"):
+            st.session_state.selected_history_item = None
+            st.rerun()
+        
+        st.markdown(f"""
+        <div class="detail-header">
+            <h2 style="color: var(--text-primary); margin: 0;">🔍 Detailed Analysis</h2>
+            <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0;">
+                {datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')).strftime("%B %d, %Y at %I:%M %p")}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Display metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("🚨 Risk Level", analysis.get('risk_level', 'Unknown'))
+        
+        with col2:
+            st.metric("⚠️ Threats Detected", len(analysis.get('scam_phrases', [])))
+        
+        with col3:
+            confidence = analysis.get('confidence', analysis.get('confidence_score', 0))
+            st.metric("🎯 Confidence", f"{confidence}%")
+        
+        st.markdown("---")
+        
+        # Display image
+        try:
+            image_data = base64.b64decode(item.get('image_data', ''))
+            image = Image.open(io.BytesIO(image_data))
+            st.image(image, caption="Original Image", use_container_width=True)
+        except Exception as e:
+            st.error(f"Failed to load image: {str(e)}")
+        
+        # Display threat phrases if any
+        scam_phrases = analysis.get('scam_phrases', [])
+        if scam_phrases:
+            st.markdown("#### 🚨 Detected Threat Phrases:")
+            for phrase in scam_phrases:
+                st.markdown(f"- `{phrase}`")
+        else:
+            st.info("✅ No threat phrases detected")
+        
+        # Display reasoning if available
+        if 'reasoning' in analysis:
+            st.markdown("#### 💭 Analysis Reasoning:")
+            st.markdown(analysis['reasoning'])
+        
+        # Display full analysis
+        with st.expander("🔍 View Complete Analysis Data"):
+            st.json(analysis)
 
     def display_history_grid(history_items):
         """Display history items in a grid layout"""
@@ -1206,9 +953,7 @@ def show_history_page():
                 <h3>📭 No Analysis History</h3>
                 <p>You haven't performed any threat analyses yet.<br>
                 Upload an image on the Home page to get started with threat detection.</p>
-                <button class="back-button" onclick="window.open('/', '_self')">
-                    🏠 Go to Home
-                </button>
+
             </div>
             """, unsafe_allow_html=True)
             return
@@ -1225,29 +970,31 @@ def show_history_page():
                     timestamp = datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00'))
                     date_str = timestamp.strftime("%b %d, %Y")
                     time_str = timestamp.strftime("%I:%M %p")
-                except:
+                except Exception:
                     date_str = "Unknown Date"
                     time_str = ""
                 
                 # Get risk level styling
-                risk_level = item['risk_level']
+                risk_level = item.get('risk_level', 'Unknown')
                 risk_class = f"risk-{risk_level.lower()}"
                 
                 # Decode and display thumbnail
                 try:
-                    image_data = base64.b64decode(item['image_data'])
+                    image_data = base64.b64decode(item.get('image_data', ''))
                     image = Image.open(io.BytesIO(image_data))
                     
                     # Create a unique key for each item
                     button_key = f"history_item_{item['id']}"
                     
                     if st.button(f"📊 Analysis from {date_str}", key=button_key, use_container_width=True):
-                        show_analysis_detail(item)
+                        st.session_state.selected_history_item = item
+                        st.rerun()
                     
                     # Display thumbnail
                     st.image(image, use_container_width=True)
                     
                     # Display metadata
+                    threat_count = item.get('threat_count', 0)
                     st.markdown(f"""
                     <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; margin-top: 0.5rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -1255,75 +1002,130 @@ def show_history_page():
                             <span class="risk-badge {risk_class}">{risk_level}</span>
                         </div>
                         <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                            <span>⚠️ {item['threat_count']} threats detected</span>
+                            <span>⚠️ {threat_count} threat{"s" if threat_count != 1 else ""} detected</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                    
+
+                    def create_share_urls(analysis_data, image_data=None, extracted_text=None):
+                        """
+                        Create share URLs including the analysis image (as Base64) and extra details.
+                        """
+                        risk_level = analysis_data.get('risk_level', 'Unknown')
+                        threat_count = len(analysis_data.get('scam_phrases', []))
+                        confidence = analysis_data.get('confidence', analysis_data.get('confidence_score', 0))
+                        scam_type = analysis_data.get('scam_type', 'Unknown')
+                        category = analysis_data.get('category', 'Unknown')
+                        reasoning = analysis_data.get('reasoning', '')
+                        image_data = base64.b64decode(item.get('image_data', ''))
+
+
+                        if extracted_text:
+                            truncated_text = extracted_text if len(extracted_text) <= 200 else extracted_text[:197] + "..."
+                        else:
+                            truncated_text = "N/A"
+
+                        # Handle image
+                        image_str = ""
+                        if image_data:
+                            try:
+                                # If already base64 (like from DB), keep as is
+                                if isinstance(image_data, str):
+                                    image_b64 = image_data
+                                else:  # raw bytes → encode
+                                    image_b64 = base64.b64encode(image_data).decode("utf-8")
+                                # Example inline embedding (Telegram/WhatsApp might ignore it, but works in HTML/Markdown)
+                                image_str = f"\n🖼️ Attached Image: data:image/png;base64,{image_b64[:50]}... (truncated)\n"
+                            except Exception:
+                                image_str = "[Image not available]\n"
+
+                        share_text = f"🛡️ TruthLoop Analysis Results:\n\n"
+                        share_text += f"🚨 Risk Level: {risk_level}\n"
+                        share_text += f"⚠️ Threats Detected: {threat_count}\n"
+                        share_text += f"🎯 Confidence: {confidence}%\n"
+                        share_text += f"🕵️ Scam Type: {scam_type}\n"
+                        share_text += f"📂 Category: {category}\n"
+                        share_text += "Analyzed with TruthLoop - Advanced Scam Detection\n"
+                        share_text += "#ScamAwareness #CyberSecurity #TruthLoop"
+
+                        encoded_text = urllib.parse.quote(share_text)
+
+                        return {
+                            "telegram": f"https://t.me/share/url?url=https://truthloop.app&text={encoded_text}",
+                            "whatsapp": f"https://wa.me/?text={encoded_text}",
+                            "instagram": f"https://www.instagram.com/create/story"
+                        }
+                                        
+                    # Load Font Awesome once (put this near the top of your app)
+                    st.markdown(
+                        """
+                        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    # Inside display_history_grid loop
+                    analysis_data = item.get('analysis', {})
+                    share_urls = create_share_urls(analysis_data)
+                    with st.expander("🔗 Share"):
+                        st.markdown(
+                            f"""
+                            <div style="width:100%; display:flex; justify-content:center; margin-top:0.5rem;">
+                                <div style="display:flex; gap:1rem;">
+                                    <a href='{share_urls["telegram"]}' target='_blank' style='text-decoration:none;'>
+                                        <div style='background-color:#0088cc;border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);'>
+                                            <i class="fa-brands fa-telegram fa-lg" style="color:white; line-height:1;"></i>
+                                        </div>
+                                    </a>
+                                    <a href='{share_urls["whatsapp"]}' target='_blank' style='text-decoration:none;'>
+                                        <div style='background-color:#25D366;border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);'>
+                                            <i class="fa-brands fa-whatsapp fa-lg" style="color:white; line-height:1;"></i>
+                                        </div>
+                                    </a>
+                                    <a href='{share_urls["instagram"]}' target='_blank' style='text-decoration:none;'>
+                                        <div style='background-color:#C13584;border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(0,0,0,0.2);'>
+                                            <i class="fa-brands fa-instagram fa-lg" style="color:white; line-height:1;"></i>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
                 except Exception as e:
                     st.error(f"Failed to load analysis: {str(e)}")
 
-    def show_analysis_detail(item):
-        """Show detailed analysis in an expander"""
-        analysis = item['analysis']
-        
-        st.markdown(f"""
-        ### 🔍 Detailed Analysis - {datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')).strftime("%B %d, %Y at %I:%M %p")}
-        """)
-        
-        # Display metrics
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("🚨 Risk Level", analysis.get('risk_level', 'Unknown'))
-        
-        with col2:
-            st.metric("⚠️ Threats Detected", len(analysis.get('scam_phrases', [])))
-        
-        with col3:
-            st.metric("🎯 Confidence", f"{analysis.get('confidence', 0)}%")
-        
-        # Display image
-        try:
-            image_data = base64.b64decode(item['image_data'])
-            image = Image.open(io.BytesIO(image_data))
-            st.image(image, caption="Original Image", use_container_width=True)
-        except:
-            st.error("Failed to load image")
-        
-        # Display threat phrases if any
-        scam_phrases = analysis.get('scam_phrases', [])
-        if scam_phrases:
-            st.markdown("#### 🚨 Detected Threat Phrases:")
-            for phrase in scam_phrases:
-                st.markdown(f"- `{phrase}`")
-        
-        # Display full analysis
-        with st.expander("🔍 View Complete Analysis Data"):
-            st.json(analysis)
-
     # Main content
     if redis_client:
-        # Load and display history
-        history_items = load_history()
-        
-        # Display statistics
-        if history_items:
-            total_analyses = len(history_items)
-            high_risk_count = sum(1 for item in history_items if item['risk_level'] == 'High')
+        # Check if a detail view is selected
+        if st.session_state.selected_history_item:
+            show_analysis_detail(st.session_state.selected_history_item)
+        else:
+            # Load and display history
+            history_items = load_history()
             
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("📊 Total Analyses", total_analyses)
-            with col2:
-                st.metric("🚨 High Risk Detected", high_risk_count)
-            with col3:
-                st.metric("📈 Success Rate", f"{max(0, 100 - (high_risk_count/total_analyses*100) if total_analyses > 0 else 0):.1f}%")
+            # Display statistics
+            if history_items:
+                total_analyses = len(history_items)
+                high_risk_count = sum(1 for item in history_items if item.get('risk_level') == 'High')
+                avg_confidence = sum(
+                    item['analysis'].get('confidence', item['analysis'].get('confidence_score', 0))
+                    for item in history_items
+                ) / len(history_items)
+ 
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📊 Total Analyses", total_analyses)
+                with col2:
+                    st.metric("🚨 High Risk Detected", high_risk_count)
+                with col3:
+                    st.metric("📈 Average Confidence", f"{avg_confidence:.1f}%")
+                
+                st.markdown("---")
             
-            st.markdown("---")
-        
-        # Display history grid
-        display_history_grid(history_items)
+            # Display history grid
+            display_history_grid(history_items)
         
     else:
         st.markdown("""
@@ -1331,9 +1133,7 @@ def show_history_page():
             <h3>⚠️ History Unavailable</h3>
             <p>Redis connection is required to store and retrieve analysis history.<br>
             Please ensure Redis is running and properly configured.</p>
-            <button class="back-button" onclick="window.open('/', '_self')">
-                🏠 Go to Home
-            </button>
+
         </div>
         """, unsafe_allow_html=True)
 
@@ -1394,44 +1194,6 @@ def show_home_page():
                 --shadow-heavy: rgba(0, 0, 0, 0.4);
             }
             
-            /* Floating Navigation Bar */
-            .nav-bar {
-                position: fixed;
-                bottom: 20px;       /* move to bottom */
-                left: 50%;          /* center horizontally */
-                transform: translateX(-50%);
-                z-index: 1000;
-                background: var(--bg-card);
-                border-radius: 25px;
-                padding: 8px;
-                border: 1px solid var(--border-primary);
-                box-shadow: 0 8px 32px var(--shadow-heavy);
-                display: flex;
-                gap: 8px;
-            }
-
-            
-            .nav-item {
-                padding: 12px 18px;
-                background: var(--bg-secondary);
-                border: 1px solid var(--border-primary);
-                border-radius: 18px;
-                color: var(--text-secondary);
-                text-decoration: none;
-                font-weight: 500;
-                font-size: 0.9rem;
-                transition: all 0.3s ease;
-                cursor: pointer;
-            }
-            
-            .nav-item:hover, .nav-item.active {
-                background: var(--accent-color);
-                color: var(--bg-primary);
-                border-color: var(--accent-color);
-                transform: translateY(-2px);
-                box-shadow: 0 4px 16px rgba(88, 166, 255, 0.3);
-            }
-                
 
             /* Global styling */
             .stApp {
@@ -1745,7 +1507,7 @@ def show_home_page():
                 50% { opacity: 0.8; }
             }
             
-            /* Educational content */
+            /* what if content */
             .educational-content {
                 background: var(--bg-secondary);
                 color: var(--text-primary);
@@ -1768,6 +1530,31 @@ def show_home_page():
                 line-height: 1.7;
                 font-size: 1.1rem;
             }
+            
+            /* Educational content */
+            .whatif-content {
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                padding: 2rem;
+                border-radius: 12px;
+                border-left: 4px solid var(--primary-color);
+                margin: 1rem 0;
+                box-shadow: 0 4px 16px var(--shadow-light);
+            }
+            
+            .whatif-content h4 {
+                color: var(--text-primary) !important;
+                margin-bottom: 1.5rem;
+                font-size: 1.3rem;
+                font-weight: 600;
+            }
+            
+            .whatif-content p {
+                color: var(--text-secondary) !important;
+                line-height: 1.7;
+                font-size: 1.1rem;
+            }
+            
             
             /* Image containers */
             .image-container {
@@ -1919,10 +1706,9 @@ def show_home_page():
 
 
         # Helper function to save analysis to Redis
-        def save_to_history(analysis_data, image_data):
+        def save_to_history(analysis_data, image_data, redis_client):
             if not redis_client:
                 return False
-            
             try:
                 # Create unique ID based on timestamp and content hash
                 timestamp = datetime.now().isoformat()
@@ -1947,30 +1733,10 @@ def show_home_page():
                 redis_client.zadd("history_index", {analysis_id: datetime.now().timestamp()})
                 
                 return True
+            
             except Exception as e:
                 st.error(f"Failed to save to history: {str(e)}")
                 return False
-
-        # Helper function to create share URLs
-        def create_share_urls(analysis_data, extracted_text):
-            # Create a summary for sharing
-            risk_level = analysis_data.get('risk_level', 'Unknown')
-            threat_count = len(analysis_data.get('scam_phrases', []))
-            
-            share_text = f"🛡️ TruthLoop Analysis Results:\n\n"
-            share_text += f"🚨 Risk Level: {risk_level}\n"
-            share_text += f"⚠️ Threats Detected: {threat_count}\n\n"
-            share_text += f"Analyzed with TruthLoop - Advanced Scam Detection\n"
-            share_text += f"#ScamAwareness #CyberSecurity #TruthLoop"
-            
-            # URL encode the text
-            encoded_text = urllib.parse.quote(share_text)
-            
-            return {
-                'telegram': f"https://t.me/share/url?url=https://truthloop.app&text={encoded_text}",
-                'whatsapp': f"https://wa.me/?text={encoded_text}",
-                'instagram': f"https://www.instagram.com/create/story" # Instagram stories require app
-            }
 
         # -----------------------------
         # Header Section
@@ -1989,12 +1755,11 @@ def show_home_page():
 
         if uploaded_home:
             # Display uploaded image in a clean container
-            st.markdown('<div class="image-container">', unsafe_allow_html=True)
             st.image(uploaded_home, caption="📤 Uploaded Image", use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
             # Read file once
-            file_bytes = uploaded_.read()
+            file_bytes = uploaded_home.read()
 
             # Save uploaded image temporarily
             temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -2023,16 +1788,18 @@ def show_home_page():
             confidence = scam_json.get("confidence", 0)
 
             status_text.text("📚 Generating educational content...")
-            progress_bar.progress(80)
+            progress_bar.progress(60)
             
             img_base64 = base64.b64encode(file_bytes).decode("utf-8")
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_narration = executor.submit(generate_narration_from_json, scam_json)
                 future_image = executor.submit(generate_starter_frame, extracted_text)
-
                 narration = future_narration.result()
+
+                future_what_if = executor.submit(what_if_bot,narration)
                 edu_image_path = future_image.result()
+                what_if_scenario = future_what_if.result()
 
             progress_bar.progress(100)
             
@@ -2135,7 +1902,7 @@ def show_home_page():
             """, unsafe_allow_html=True)
 
             # Tabbed interface for educational content
-            tab1, tab2= st.tabs(["📖 Educational Explanation", "🎨 Visual Learning Guide"])
+            tab1,tab2,tab3= st.tabs(["📖 Educational Explanation","❗Consequnces", "🎨 Visual Learning Guide"])
             
             with tab1:
                 st.markdown(f"""
@@ -2144,11 +1911,17 @@ def show_home_page():
                     <p>{narration}</p>
                 </div>
                 """, unsafe_allow_html=True)
-            
+
             with tab2:
-                st.markdown('<div class="image-container">', unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="whatif-content">
+                    <h4>❗Consequnces</h4>
+                    <p>{what_if_scenario}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with tab3:
                 st.image(Image.open(edu_image_path), caption="🎨 Educational Visual Guide", use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
 
             # Success message
             st.markdown("""
@@ -2157,33 +1930,12 @@ def show_home_page():
                 <p>Your image has been successfully analyzed for potential scams and threats. Review the highlighted indicators above to enhance your cybersecurity awareness.</p>
             </div>
             """, unsafe_allow_html=True)
-
-
-                # Action buttons for Post and Save
-            share_urls = create_share_urls(scam_json, extracted_text)
             
-            col1, col2 = st.columns(2)
+            col1 = st.columns(1)
             
-            with col1:
-                if st.button("📤 Share Analysis", key="post_btn", use_container_width=True):
-                    st.markdown(f"""
-                    <div class="share-options">
-                        <h4 style="color: var(--text-primary); margin-bottom: 1rem;">Share Your Analysis</h4>
-                        <a href="{share_urls['telegram']}" target="_blank" class="share-btn telegram-btn">
-                            📱 Telegram
-                        </a>
-                        <a href="{share_urls['whatsapp']}" target="_blank" class="share-btn whatsapp-btn">
-                            💬 WhatsApp
-                        </a>
-                        <a href="{share_urls['instagram']}" target="_blank" class="share-btn instagram-btn">
-                            📸 Instagram
-                        </a>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            with col2:
+            with col1[0]:
                 if st.button("💾 Save to History", key="save_btn", use_container_width=True):
-                    if save_to_history(scam_json, file_bytes):
+                    if save_to_history(scam_json, file_bytes, redis_client):
                         st.success("✅ Analysis saved to history!")
                     else:
                         st.error("❌ Failed to save to history. Redis connection required.")
@@ -2221,5 +1973,22 @@ def show_home_page():
         """, unsafe_allow_html=True)
 
 
-if __name__ == "__main__":
-    main()
+# -----------------------------
+# Route to the appropriate page
+# -----------------------------
+page = st.session_state["page"]
+
+if page == "history":
+    try:
+        show_history_page()
+    except NameError:
+        st.error("History page not found.")
+        show_home_page()
+elif page == "what_if":
+    try:
+        show_what_if()
+    except NameError:
+        st.error("What If page not found.")
+        show_home_page()
+else:
+    show_home_page()

@@ -5,3 +5,6 @@ langchain
 langchain_openai
 elevenlabs
 python-dotenv
+streamlit 
+pillow
+
