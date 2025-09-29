@@ -4,4 +4,4 @@ elevenlabs
 python-dotenv
 streamlit 
 pillow
-
+redis
