@@ -525,27 +525,27 @@ def show_what_if():
         <ul class="prevention-list">
             <li class="prevention-item">
                 <span class="prevention-icon">✅</span>
-                <strong>Verify independently:</strong> Always check claims through official channels
+                <strong>Verify independently:</strong>&nbsp;Always check claims through official channels
             </li>
             <li class="prevention-item">
                 <span class="prevention-icon">✅</span>
-                <strong>Think before you click:</strong> Hover over links to see the real destination
+                <strong>Think before you click:</strong>&nbsp;Hover over links to see the real destination
             </li>
             <li class="prevention-item">
                 <span class="prevention-icon">✅</span>
-                <strong>Trust your instincts:</strong> If something feels too good to be true, it probably is
+                <strong>Trust your instincts:</strong>&nbsp;If something feels too good to be true, it probably is
             </li>
             <li class="prevention-item">
                 <span class="prevention-icon">✅</span>
-                <strong>Enable 2FA:</strong> Use two-factor authentication on all important accounts
+                <strong>Enable 2FA:</strong>&nbsp;Use two-factor authentication on all important accounts
             </li>
             <li class="prevention-item">
                 <span class="prevention-icon">✅</span>
-                <strong>Stay educated:</strong> Keep up with the latest scam tactics and warnings
+                <strong>Stay educated:</strong>&nbsp;Keep up with the latest scam tactics and warnings
             </li>
             <li class="prevention-item">
                 <span class="prevention-icon">✅</span>
-                <strong>Ask for help:</strong> Consult trusted friends or family before making financial decisions
+                <strong>Ask for help:<span></span></strong>&nbsp;Consult trusted friends or family before making financial decisions
             </li>
         </ul>
     </div>
