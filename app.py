@@ -120,7 +120,7 @@ with col3:
         st.session_state["page"] = "what_if"
         st.rerun()
 with col4:
-    if st.button("📚 History", key="history_nav", use_container_width=True):
+    if st.button("📚 Feed", key="history_nav", use_container_width=True):
         st.session_state["page"] = "history"
         st.rerun()
 
