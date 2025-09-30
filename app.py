@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from agents.llm_utils import generate_narration_from_json, what_if_bot
-from agents.image_utils import encode_image_to_base64, generate_starter_frame
+from agents.image_utils import generate_starter_frame
 from agents.detect_scam import detect_scam_text, ocr_with_openai
 import urllib.parse
 

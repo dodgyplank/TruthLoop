@@ -60,6 +60,17 @@ The app should now be accessible at `http://localhost:8501`.
 
 ---
 
+## Environment variables
+Create a `.env` file in the root directory and add the following variables:
+
+```env
+OPENAI_API_KEY="your_openai_api_key"
+REDIS_HOST="your_redis_host"
+REDIS_PORT="your_redis_port"
+REDIS_PASSWORD="your_redis_password"
+```
+---
+
 ## Project Structure
 
 ```
