@@ -989,7 +989,6 @@ def show_history_page():
                 <h3>📭 No Analysis History</h3>
                 <p>You haven't performed any threat analyses yet.<br>
                 Upload an image on the Home page to get started with threat detection.</p>
-
             </div>
             """, unsafe_allow_html=True)
             return
@@ -1645,13 +1644,12 @@ def show_home_page():
                 padding: 2.5rem;
                 color: var(--text-muted);
                 border-top: 1px solid var(--border-primary);
-                margin-top: 3rem;
+                margin-top: 2rem;
                 background: var(--bg-secondary);
                 border-radius: 16px 16px 0 0;
                 max-width: 1200px;
                 margin-left: auto;
                 margin-right: auto;
-                margin-top: 3rem;
             }
             
             .footer-container p {
