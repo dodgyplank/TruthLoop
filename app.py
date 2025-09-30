@@ -60,50 +60,66 @@ if "page" not in st.session_state:
 # -----------------------------
 st.markdown("""
 <style>
-    /* Floating navbar */
-    .floating-navbar {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: #111;
-        border-radius: 25px;
-        padding: 12px 25px;
-        display: flex;
-        gap: 25px;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.5);
-        z-index: 10000;
-    }
-    .floating-navbar a {
-        color: #fff;
-        text-decoration: none;
-        font-size: 16px;
-        font-weight: 500;
-        cursor: pointer;
-    }
-    .floating-navbar a:hover {
-        color: #00bfff;
-    }
-    /* Add bottom padding so content doesn't overlap navbar */
-    .block-container {
-        padding-bottom: 80px;
-    }
+ /* Floating navbar */
+ .floating-navbar {
+ position: fixed;
+ bottom: 20px;
+ left: 50%;
+ transform: translateX(-50%);
+ background-color: #111;
+ border-radius: 25px;
+ padding: 12px 25px;
+ display: flex;
+ gap: 25px;
+ box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+ z-index: 10000;
+ }
+ .floating-navbar a {
+ color: #fff;
+ text-decoration: none;
+ font-size: 16px;
+ font-weight: 500;
+ cursor: pointer;
+ }
+ .floating-navbar a:hover {
+ color: #00bfff;
+ }
+ /* Add bottom padding so content doesn't overlap navbar */
+ .block-container {
+ padding-bottom: 80px;
+ }
+ /* Style the navigation buttons to look like the floating navbar */
+ .stButton > button {
+ background-color: #111;
+ color: #fff;
+ border: none;
+ border-radius: 15px;
+ padding: 10px 20px;
+ font-size: 16px;
+ font-weight: 500;
+ transition: all 0.3s ease;
+ }
+ .stButton > button:hover {
+ color: #00bfff;
+ background-color: #222;
+ transform: translateY(-2px);
+ box-shadow: 0 4px 8px rgba(0,191,255,0.3);
+ }
 </style>
 """, unsafe_allow_html=True)
-
 # -----------------------------
 # Navigation Bar using buttons
 # -----------------------------
-col1, col2, col3 = st.columns([1, 1, 1])
-with col1:
+col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 1, 2])
+with col2:
     if st.button("🏠 Home", key="home_nav", use_container_width=True):
         st.session_state["page"] = "home"
         st.rerun()
-with col2:
+with col3:
     if st.button("❓ What If", key="what_if_nav", use_container_width=True):
         st.session_state["page"] = "what_if"
         st.rerun()
-with col3:
+with col4:
     if st.button("📚 History", key="history_nav", use_container_width=True):
         st.session_state["page"] = "history"
         st.rerun()
